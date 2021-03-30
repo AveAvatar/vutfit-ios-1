@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
 # IOS - project 1
 # author : Tadeáš Kachyňa
 # login : xkachy00
