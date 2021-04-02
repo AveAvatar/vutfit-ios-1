@@ -36,6 +36,8 @@ help()
 
 # ========== Loading Logs ==========
 
+NUMBER_OF_LOGS=0
+
 # loop through arguments
 for var in "$@" ; do  
     
@@ -46,31 +48,35 @@ for var in "$@" ; do
 
         # LOG files
         *.log ) 
-            i=$((i+1))
-            AB=$(cat "$var")
-            LOG=""
-            LOG="$LOG$AB" 
+            NUMBER_OF_LOGS=$((NUMBER_OF_LOGS+1))
+            LOADING_LOG=$(cat "$var")
+            
+            LOG="$LOG
+$LOADING_LOG"
+            LOG=$(echo "$LOG" | awk 'NF')
             ;;
 
         # LOG.GZ files
         *.log.gz)
-            i=$((i+1))
-            AB=$(gunzip -d -k -c     "$var")
+            NUMBER_OF_LOGS=$((NUMBER_OF_LOGS+1))
+            LOADING_LOG=$(gunzip -d -k -c "$var")
 
-            LOG="${LOG}$AB"
+            LOG="${LOG}$LOADING_LOG"
             ;;
 
         # Wrong format 
-        *)  
-
-            
+        *)   
             echo "ERROR > Wrong format. Only *.log and *.log.gz are supported!"
             exit 1
             ;;
-        esac     
+            
+        esac
+ 
+        
     fi
 done
 
+if [ -z "$LOG" ] ; then LOG=$(cat -); echo "$LOG" | awk 'NF' ; fi
 
 # ========== Parsing Flags  ========== 
 
@@ -83,7 +89,10 @@ while getopts ":t:a:b:w:h:help" opt; do
     t)  
         # condition checking whether the name of ticket is correct or not
         ERROR=$(echo "$TICKERS" | grep -w "$OPTARG")
-        if [ -z "$ERROR" ] ; then  echo "ERROR > Wrong ticker!" ; exit 1 ; fi
+        if [ -z "$ERROR" ] ; then  
+            echo "ERROR > Wrong ticker!"
+            exit 1 
+        fi
         
         SELECTED_TICKERS="$SELECTED_TICKERS 
 $OPTARG"
@@ -91,8 +100,7 @@ $OPTARG"
 
     # -a DATETIME – after: only records after this date are considered (without this date). DATETIME is in the format YYYY-MM-DD HH: MM: SS
     a)  
-
-        # checking date format YYYY-MM-DD HH:MM:SS.
+        # checking date format YYYY-MM-DD HH:MM:SS (1 = corect, 0 = wrong).
         DATE_FORMAT=$(echo "$OPTARG" | awk  -F '[: -]' '{ print (match($1, /^[0-9][0-9][0-9][0-9]$/) && $2 <= 12 && $3 <= 31 && $4 <= 23 && $5 <= 60 && $6 <= 60) ? 0 : 1 }')
 
         # condition - prints error, when the date format is not correct
@@ -102,14 +110,13 @@ $OPTARG"
             exit 1
         fi
 
-        
         LOG_AFTER=$(echo "$LOG" | awk -F ';' '$1 > from' from="$OPTARG")
         after=1
         ;;
 
     # -b DATETIME – before: only records BEFORE this date (without this date) are considered
     b)  
-        # checking date format YYYY-MM-DD HH:MM:SS.
+        # checking date format YYYY-MM-DD HH:MM:SS (1 = corect, 0 = wrong).
         DATE_FORMAT=$(echo "$OPTARG" | awk  -F '[: -]' '{ print (match($1, /^[0-9][0-9][0-9][0-9]$/) && $2 <= 12 && $3 <= 31 && $4 <= 23 && $5 <= 60 && $6 <= 60) ? 0 : 1 }')
 
          # condition - prints error, when the date format is not correct
@@ -119,19 +126,16 @@ $OPTARG"
             exit 1
         fi
         
-        before=1
-        LOG_BEFORE=""
         LOG_BEFORE=$(echo "$LOG" | awk -F ';' '$1 < from' from="$OPTARG" to="0000-00-00 00:00:00" )
-       
+        before=1  
         ;;
 
     # -w WIDTH – in the list of graphs, sets their width, ie the length of the longest line to WIDTH. Thus, WIDTH must be a positive integer. Multiple occurrences of the switch is a faulty start
     w)  
         WIDTH="$OPTARG"
+        WIDTH_COUNTER=$((WIDTH_COUNTER+1))
 
-        w=$((w+1))
-
-        if [ "$w" -ge 2 ] ; then
+        if [ "$WIDTH_COUNTER" -ge 2 ] ; then
             echo "ERROR > Flag -w can be entered only once!"
             exit 1
         fi
@@ -140,8 +144,8 @@ $OPTARG"
             echo "ERROR > Flag -w must be an unsigned integer!"
             exit 1
         fi
-
         ;;
+    # gives you some help
     h)
         help
         exit 0
@@ -158,7 +162,7 @@ $OPTARG"
         ;;
     esac
 done
-shift $((OPTIND -1))
+shift $((OPTIND-1))
 
 
 # ========== Merging logs $ tickers based on flags ========== 
@@ -205,8 +209,13 @@ while [ "$#" -gt 0 ] ; do
 
     # PROFIT – statement of total profit from closed positions
     profit)
-        
-        for a in $TICKERS ; do LOG_PROFIT=${LOG_PROFIT}"\n"$(echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}') ; done
+ 
+        LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a," ") } {
+        for(i=1;i in a;i++) 
+        {
+           if( $2 == a[i])  
+            print $0
+        }}')
 
         # getting all sell transactions
         SELL=$(echo "$LOG_PROFIT" | awk -F ';' '$3 ~ /sell/ {sum += $4*$6} END { printf ("%0.2f\n", sum)}')
@@ -215,17 +224,23 @@ while [ "$#" -gt 0 ] ; do
         BUY=$(echo "$LOG_PROFIT" | awk -F ';' '$3 ~ /buy/ {sum += $4*$6} END {printf ("%0.2f\n", sum)}')
 
         # printing the result
-        echo "$SELL - $BUY" | bc
+        s=$(echo "$SELL - $BUY" | bc )
+        m=$(echo "$s" | grep . )
+        printf "%0.2f\n" "$s"
 
         shift 
         ;;
     
     # LAST-PRICE – listing of the last known price for each ticke
     last-price)
-
         # search for the largest number in column no. 4
-        for a in $TICKERS ; do LOGGA=${LOGGA}"\n"$(echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}') ; done
-    
+        LOGGA=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a," ") } {
+        for(i=1;i in a;i++) 
+        {
+           if( $2 == a[i])  
+            print $0
+        }}')
+
         LENGTH=$(echo "$LOGGA" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')+1
     
         for a in $TICKERS ; do  
@@ -238,8 +253,8 @@ while [ "$#" -gt 0 ] ; do
 
     #POS – list of values of currently held positions sorted in descending order by value
     pos)
-
-        for a in $TICKERS
+       
+         for a in $TICKERS
         do  
            
             # getting bought stocks for each ticket and add it to a var "sum"
@@ -278,6 +293,7 @@ $a:$POS_RESULT1"
             VARa=$(echo "$LOG"|  awk -F ';' -v lvar="$a" '$2==lvar {print $0}')
 
             VARb=$(echo "$VARa" | awk 'END{print NR}')
+
         
             VARc=$(echo "$VARb"| awk '{
             s = sprintf("%*s", $1, " ")
@@ -321,26 +337,19 @@ $POS_RESULT1"
 "   
             for a in $POS_RESULT3 ; do
  
-
             TEST1=$(echo "$a" | awk  -v var="$a" -v max="$MAX_VAL" -v wid="$WIDTH" '  {sum=(wid/max)*var} END{printf "%0.f", int(sum)}')
-            
-            
-
+          
             TEST=$(echo "$TEST1" | awk -v var="$TEST1" '{
             if (var > 0)
             {  
-                
                s = sprintf("%*s", var, "")
-       
                gsub(" ", "#", s)
                print s
             } else if (var < 0) {    
                s = sprintf("%*s", var, "")
-       
                gsub(" ", "!", s)
                print s
             }  
-            
             }')
         
 
@@ -348,8 +357,7 @@ $POS_RESULT1"
 $TEST"
             done
  
-            AVE=$(printf '%s\n' "$TICKERS" "$END" | pr -2 -t -W 1000 )
-
+            AVE=$(printf '%s\n' "$TICKERS" "$END" | pr -2 -t -w 1000 )
             echo "$AVE" | awk -F " " '{
             if ($2)
             {
@@ -363,7 +371,6 @@ $TEST"
     
     --help)
 
-
         help
         exit 0
 
@@ -375,14 +382,13 @@ $TEST"
         TESTA="$TESTA
 $TESTB"
         done
-        
         echo "$TESTA" | awk 'NF' | sort -k1
         ;;
         
     esac
 
 
-shift "$i"
+shift "$NUMBER_OF_LOGS"
 done
 
 # ========== COMMANDS ========== END
