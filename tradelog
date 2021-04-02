@@ -1,4 +1,4 @@
-#! /bin/dash
+#!/bin/sh
 # =============================================================
 # @IOS - project 1
 # @author : Tadeáš Kachyňa
@@ -48,18 +48,22 @@ for var in "$@" ; do
         *.log ) 
             i=$((i+1))
             AB=$(cat "$var")
-            LOG="${LOG} $AB"
+            LOG=""
+            LOG="$LOG$AB" 
             ;;
 
         # LOG.GZ files
         *.log.gz)
             i=$((i+1))
-            AB=$(gzcat "$var")
-            LOG="${LOG} $AB"
+            AB=$(gunzip -d -k -c     "$var")
+
+            LOG="${LOG}$AB"
             ;;
 
         # Wrong format 
         *)  
+
+            
             echo "ERROR > Wrong format. Only *.log and *.log.gz are supported!"
             exit 1
             ;;
@@ -70,11 +74,17 @@ done
 
 # ========== Parsing Flags  ========== 
 
+TICKERS="$(echo "$LOG" | awk -F ';' '{print $2}' | sort -u)"
+
 while getopts ":t:a:b:w:h:help" opt; do
     case ${opt} in
 
     # -t TICKER – only entries corresponding to a given ticker are considered. With multiple occurrences of the switch, the set of all listed ticker is taken
     t)  
+        # condition checking whether the name of ticket is correct or not
+        ERROR=$(echo "$TICKERS" | grep -w "$OPTARG")
+        if [ -z "$ERROR" ] ; then  echo "ERROR > Wrong ticker!" ; exit 1 ; fi
+        
         SELECTED_TICKERS="$SELECTED_TICKERS 
 $OPTARG"
         ;;
@@ -92,8 +102,9 @@ $OPTARG"
             exit 1
         fi
 
+        
+        LOG_AFTER=$(echo "$LOG" | awk -F ';' '$1 > from' from="$OPTARG")
         after=1
-        LOG_AFTER=$(echo "$LOG" | awk '$0>from&&$0<to' from="$OPTARG" to="9999-99-99 23:59:59")
         ;;
 
     # -b DATETIME – before: only records BEFORE this date (without this date) are considered
@@ -109,7 +120,9 @@ $OPTARG"
         fi
         
         before=1
-        LOG_BEFORE=$(echo "$LOG" | awk '$0>from&&$0<to' from="0000-00-00 00:00:00" to="$OPTARG")
+        LOG_BEFORE=""
+        LOG_BEFORE=$(echo "$LOG" | awk -F ';' '$1 < from' from="$OPTARG" to="0000-00-00 00:00:00" )
+       
         ;;
 
     # -w WIDTH – in the list of graphs, sets their width, ie the length of the longest line to WIDTH. Thus, WIDTH must be a positive integer. Multiple occurrences of the switch is a faulty start
@@ -230,11 +243,11 @@ while [ "$#" -gt 0 ] ; do
         do  
            
             # getting bought stocks for each ticket and add it to a var "sum"
-            POS_BUY=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2 ~ lvar && $3 ~ /buy/ {sum += $6} END {print sum}')
+            POS_BUY=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar && $3 ~ /buy/ {sum += $6} END {print sum}')
             if [ -z "$POS_BUY" ] ; then  POS_SELL=0 ; fi
 
             # getting sold stocks for each ticket and add it to a var "sum"
-            POS_SELL=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2 ~ lvar && $3 ~ /sell/ {sum += $6} if (length(sum) == 0){sum = 0} END {print sum}')
+            POS_SELL=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar && $3 ~ /sell/ {sum += $6}  END {print sum}')
             if [ -z "$POS_SELL" ] ; then  POS_SELL=0 ; fi
 
             # "sold" - "bought"
@@ -262,7 +275,7 @@ $a:$POS_RESULT1"
     hist-ord)
         for a in $TICKERS
         do
-            VARa=$(echo "$LOG"| grep "$a")
+            VARa=$(echo "$LOG"|  awk -F ';' -v lvar="$a" '$2==lvar {print $0}')
 
             VARb=$(echo "$VARa" | awk 'END{print NR}')
         
@@ -282,10 +295,10 @@ $a:$POS_RESULT1"
          for a in $TICKERS
         do  
             # getting bought stocks for each ticket and add it to a var "sum"
-            POS_BUY=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2 ~ lvar && $3 ~ /buy/ {sum += $6} END {printf "%.0f", sum}')
+            POS_BUY=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar && $3 ~ /buy/ {sum += $6} END {printf "%.0f", sum}')
 
             # getting sold stocks for each ticket and add it to a var "sum"
-            POS_SELL=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2 ~ lvar && $3 ~ /sell/ {sum += $6} END {printf "%.0f", sum}')
+            POS_SELL=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar && $3 ~ /sell/ {sum += $6} END {printf "%.0f", sum}')
 
             # "sold" - "bought"
             POS_RESULT="$( echo "$POS_BUY - $POS_SELL" | bc)"
@@ -293,8 +306,8 @@ $a:$POS_RESULT1"
             
         
             # getting the last transaction
-            POS_LAST_TRANS="$(echo "$LOG" | grep "$a" | tail -n1 | awk -F ';' '{print $4}')"
-            echo "hlaska" 1>&a
+            POS_LAST_TRANS="$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar {print $0}' | tail -n1 | awk -F ';' '{print $4}')"
+
             #echo "$VAR2"
             POS_RESULT1=$(echo  "$POS_RESULT*$POS_LAST_TRANS"| bc)
             POS_RESULT3="$POS_RESULT3
@@ -302,35 +315,48 @@ $POS_RESULT1"
         done 
 
             POSR=$(echo "$POS_RESULT3"| awk 'NF')
-            MAX_VAL=$(echo "$POSR" | tr ' ' '\n' | sort -n | head -1)
+            MAX_VAL=$(echo "$POSR" | tr ' ' '\n' | tr '-' ' ' | sort -nr | head -1)
 
             IFS="
-" 
+"   
             for a in $POS_RESULT3 ; do
-        
-            TEST1=$(echo "$a" | awk  -v var="$a" -v max="$MAX_VAL" -v wid="$WIDTH" '  {sum=(wid/max)*var} END{print sum}')
-                
+ 
+
+            TEST1=$(echo "$a" | awk  -v var="$a" -v max="$MAX_VAL" -v wid="$WIDTH" '  {sum=(wid/max)*var} END{printf "%0.f", int(sum)}')
+            
+            
+
             TEST=$(echo "$TEST1" | awk -v var="$TEST1" '{
-            if (var >= 0)
-            {
-               s = sprintf("%*s", $1, " ")
-               gsub(/ /, "#", s)
-               print s p
-            } else {    
-               s = sprintf("%*s", $1, " ")
-               gsub(/ /, "!", s)
-               print s p
-            }   
+            if (var > 0)
+            {  
+                
+               s = sprintf("%*s", var, "")
+       
+               gsub(" ", "#", s)
+               print s
+            } else if (var < 0) {    
+               s = sprintf("%*s", var, "")
+       
+               gsub(" ", "!", s)
+               print s
+            }  
             
             }')
+        
 
             END="$END 
 $TEST"
             done
-        
-            AVE=$(printf '%s\n' "$TICKERS" "$END" | pr -2 -t  )
+ 
+            AVE=$(printf '%s\n' "$TICKERS" "$END" | pr -2 -t -W 1000 )
 
-            echo "$AVE" | awk -F " " '{printf "%-10s : %s\n", $1,  $2}'
+            echo "$AVE" | awk -F " " '{
+            if ($2)
+            {
+               printf "%-10s: %s\n", $1,  $2
+            } else {    
+               printf "%-10s:\n", $1}
+            }'
                     
         shift 
         ;;
