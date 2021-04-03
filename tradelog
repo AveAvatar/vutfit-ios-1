@@ -353,7 +353,7 @@ $POS_RESULT1"
             }}')
         
 
-            END="$END,$TEST"
+            END="$END $TEST"
             done
  
        
