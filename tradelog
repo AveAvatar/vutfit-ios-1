@@ -77,7 +77,7 @@ $LOADING_LOG"
     fi
 done
 
-if [ -z "$LOG" ] ; then LOG=$(cat - | awk 'NF' ) ; fi
+if [ -z "$LOG" ] ; then LOG=$(cat - ) ; echo "$LOG" | awk 'NF' ; fi
 
 # ========== Parsing Flags  ========== 
 
@@ -204,13 +204,13 @@ while [ "$#" -gt 0 ] ; do
 
         for a in $TICKERS ; do
             echo "$a" 
-        done    
+        done
         shift
         ;;
 
     # PROFIT – statement of total profit from closed positions
     profit)
-      
+       
         LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
         for(i=1;i in a;i++) 
         {
@@ -364,8 +364,8 @@ $POS_RESULT1"
                 print s
             }}')
         
-
-                 END="$END
+            
+            END="$END
 $TEST"
             done
  
@@ -395,6 +395,7 @@ $TEST"
 
         ;;     
     *)  
+        
         for a in $TICKERS
         do
         TESTB=$(echo "$LOG" | grep -w "$a")
@@ -402,7 +403,10 @@ $TEST"
 $TESTB"
         done
         echo "$TESTA" | awk 'NF' | sort -k1
+        
         ;;
+
+        
         
     esac
 
