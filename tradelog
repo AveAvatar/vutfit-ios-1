@@ -95,8 +95,7 @@ while getopts ":t:a:b:w:h:help" opt; do
             exit 1 
         fi
         
-        SELECTED_TICKERS="$SELECTED_TICKERS 
-$OPTARG"
+        SELECTED_TICKERS="$SELECTED_TICKERS $OPTARG"
         ;;
 
     # -a DATETIME – after: only records after this date are considered (without this date). DATETIME is in the format YYYY-MM-DD HH: MM: SS
@@ -204,13 +203,13 @@ while [ "$#" -gt 0 ] ; do
 
         for a in $TICKERS ; do
             echo "$a" 
-        done
+        done    
         shift
         ;;
 
     # PROFIT – statement of total profit from closed positions
     profit)
- 
+      
         LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a," ") } {
         for(i=1;i in a;i++) 
         {
@@ -226,7 +225,7 @@ while [ "$#" -gt 0 ] ; do
 
         # printing the result
         s=$(echo "$SELL - $BUY" | bc )
-        m=$(echo "$s" | grep . )
+
         printf "%0.2f\n" "$s"
 
         shift 
@@ -373,7 +372,7 @@ $POS_RESULT1"
         
 
             
-            echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a,"\n") split(vvar,b," ") } END {
+            echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
 
             for(i=1;i in a;i++) 
             {   
