@@ -80,7 +80,7 @@ if [ -z "$LOG" ] ; then LOG=$(cat - | awk 'NF') ; fi
 if [ "$#" -eq 0 ] ; then echo "$LOG" ; fi
 # ========== Parsing Flags  ========== 
 
-TICKERS="$(echo "$LOG" | awk -F ';' '{printf "%s ", $2} ENDFILE {print ""}' | sort -u)"
+TICKERS="$(echo "$LOG" | awk -F ';' '{print $2} '| sort -u)"
 
 while getopts ":t:a:b:w:h:help" opt; do
     case ${opt} in
@@ -94,7 +94,8 @@ while getopts ":t:a:b:w:h:help" opt; do
             exit 1 
         fi
         
-        SELECTED_TICKERS="$SELECTED_TICKERS $OPTARG"
+        SELECTED_TICKERS="$SELECTED_TICKERS
+$OPTARG"
         ;;
 
     # -a DATETIME – after: only records after this date are considered (without this date). DATETIME is in the format YYYY-MM-DD HH: MM: SS
@@ -353,12 +354,12 @@ $POS_RESULT1"
             END="$END
 $TEST"
             done
- 
-        
+            
+
             ENND=$(echo "$END"| awk '{printf "%s ", $1} ENDFILE {print ""}')
-            TICKERS=$(echo "$TICKERS"| awk '{printf "%s ", $1} ENDFILE {print ""}')
-         
-            echo "$ENND" | awk -F " "  -v var="$TICKERS" -v vvar="$ENND" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
+            TICKERSS=$(echo "$TICKERS"| awk '{printf "%s ", $1} ENDFILE {print ""}')
+  
+            echo "$ENND" | awk -F " "  -v var="$TICKERSS" -v vvar="$ENND" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
            
             for(i=1;i in a;i++) 
             {   
