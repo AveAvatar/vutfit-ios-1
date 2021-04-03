@@ -358,7 +358,7 @@ $POS_RESULT1"
  
             
 
-
+            echo "$END"
 
             echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b,",") } END {
 
