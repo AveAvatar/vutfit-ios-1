@@ -365,15 +365,15 @@ $POS_RESULT1"
             }}')
         
 
-            END="$END $TEST"
+                 END="$END
+$TEST"
             done
  
-            
-
         
+            ENND=$(echo "$END"| awk 'NF') 
 
             
-            echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
+            echo "$ENND" | awk -F " "  -v var="$TICKERS" -v vvar="$ENND" 'BEGIN { split(var,a,"\n") split(vvar,b,"\n") } END {
 
             for(i=1;i in a;i++) 
             {   
