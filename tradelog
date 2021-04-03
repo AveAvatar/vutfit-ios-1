@@ -234,22 +234,14 @@ while [ "$#" -gt 0 ] ; do
     
     # LAST-PRICE – listing of the last known price for each ticke
     last-price)
-        # search for the largest number in column no. 4
-        LOGGA=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a," ") } {
-        for(i=1;i in a;i++) 
-        {
-           if( $2 == a[i])  
-            print $0
-        }}')
-
-        LENGTH=$(echo "$LOGGA" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')
-        echo "===="
-        echo "$LOGGA"
-        echo "$LENGTH"
-        echo "==="
+         # search for the largest number in column no. 4
+        for a in $TICKERS ; do LOGGA=${LOGGA}"\n"$(echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}') ; done
+    
+        LENGTH=$(echo "$LOGGA" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')+1
+    
         for a in $TICKERS ; do  
             # get all "$a" transactions => print the last one => align to the right by the longest number
-            echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}' |  awk -F ';' -v var="$a" -v len="$LENGTH" '$2 ~ var{a=$0} END{ printf "%-10s: %*s\n" , var, len, $4}'
+            echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}' |  awk -F ';' -v var="$a" -v len="$LENGTH" '$2 ~ var{a=$0} END{ printf "%-10s : %*s\n", var, len, $4}'
      
         done
         shift
