@@ -76,8 +76,8 @@ $LOADING_LOG"
     fi
 done
 
-if [ -z "$LOG" ] ; then LOG=$(cat -); echo "$LOG" | awk 'NF' ; fi
-
+if [ -z "$LOG" ] ; then LOG=$(cat - | awk 'NF') ; fi
+if [ "$#" -eq 0 ] ; then echo "$LOG" ; fi
 # ========== Parsing Flags  ========== 
 
 TICKERS="$(echo "$LOG" | awk -F ';' '{printf "%s ", $2} ENDFILE {print ""}' | sort -u)"
@@ -331,7 +331,7 @@ $POS_RESULT1"
             MAX_VAL=$(echo "$POSR" | tr ' ' '\n' | tr '-' ' ' | sort -nr | head -1)
 
             for a in $POS_RESULT3 ; do
- 
+        
             TEST1=$(echo "$a" | awk  -v var="$a" -v max="$MAX_VAL" -v wid="$WIDTH" '  { if(wid != 0) {sum=(wid/max)*var} else {sum=var/1000} } END{printf "%0.f", int(sum)}')
           
             TEST=$(echo "$TEST1" | awk -v var="$TEST1" '{
@@ -356,7 +356,7 @@ $TEST"
  
         
             ENND=$(echo "$END"| awk '{printf "%s ", $1} ENDFILE {print ""}')
-            TICKERS=$(echo "$TICKERS" | awk '{printf "%s ", $1} ENDFILE {print ""}')
+
          
             echo "$ENND" | awk -F " "  -v var="$TICKERS" -v vvar="$ENND" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
            
