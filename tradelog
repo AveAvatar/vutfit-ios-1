@@ -211,12 +211,7 @@ while [ "$#" -gt 0 ] ; do
     # PROFIT – statement of total profit from closed positions
     profit)
  
-        LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a," ") } {
-        for(i=1;i in a;i++) 
-        {
-           if( $2 == a[i])  
-            print $0
-        }}')
+        for a in $TICKERS ; do LOG_PROFIT=${LOG_PROFIT}"\n"$(echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}') ; done
 
         # getting all sell transactions
         SELL=$(echo "$LOG_PROFIT" | awk -F ';' '$3 ~ /sell/ {sum += $4*$6} END { printf ("%0.2f\n", sum)}')
@@ -225,13 +220,11 @@ while [ "$#" -gt 0 ] ; do
         BUY=$(echo "$LOG_PROFIT" | awk -F ';' '$3 ~ /buy/ {sum += $4*$6} END {printf ("%0.2f\n", sum)}')
 
         # printing the result
-        s=$(echo "$SELL - $BUY" | bc )
-        m=$(echo "$s" | grep . )
-        printf "%0.2f\n" "$s"
+        echo "$SELL - $BUY" | bc
 
         shift 
         ;;
-    
+        
     # LAST-PRICE – listing of the last known price for each ticke
     last-price)
          # search for the largest number in column no. 4
