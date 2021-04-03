@@ -362,7 +362,7 @@ $POS_RESULT1"
 
             echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b,",") } END {
 
-            for(i=1;i in a;i++) 
+            for(i in a)
             { 
                printf "%-10s: %s\n", a[i],  b[i]
             } 
