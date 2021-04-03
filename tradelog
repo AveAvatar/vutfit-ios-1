@@ -211,7 +211,7 @@ while [ "$#" -gt 0 ] ; do
     # PROFIT – statement of total profit from closed positions
     profit)
       
-        LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a," ") } {
+        LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
         for(i=1;i in a;i++) 
         {
            if( $2 == a[i])  
