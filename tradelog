@@ -356,7 +356,7 @@ $TEST"
  
         
             ENND=$(echo "$END"| awk '{printf "%s ", $1} ENDFILE {print ""}')
-
+            TICKERS=$(echo "$TICKERS"| awk '{printf "%s ", $1} ENDFILE {print ""}')
          
             echo "$ENND" | awk -F " "  -v var="$TICKERS" -v vvar="$ENND" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
            
