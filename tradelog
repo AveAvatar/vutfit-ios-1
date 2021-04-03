@@ -358,13 +358,11 @@ $POS_RESULT1"
  
        
 
-            echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b,",") } END {
+            echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
 
-            for(i in b)
-            { 
-               print b[i]
-            } 
+            printf "%s %s\n", a[1], b[1]
             }'
+               
                         
         shift 
         ;;
