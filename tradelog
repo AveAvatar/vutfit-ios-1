@@ -358,7 +358,7 @@ $POS_RESULT1"
  
        
 
-            echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
+            echo "$END" | awk -F " "  -v var="AAPL V DSA" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
 
             printf "%s %s\n", a[1], b[1]
             }'
