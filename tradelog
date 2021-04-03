@@ -38,7 +38,6 @@ help()
 
 NUMBER_OF_LOGS=0
 WIDTH=0
-
 # loop through arguments
 for var in "$@" ; do  
     
@@ -77,11 +76,11 @@ $LOADING_LOG"
     fi
 done
 
-if [ -z "$LOG" ] ; then LOG=$(cat - | awk 'NF') ;c=1 ; fi
+if [ -z "$LOG" ] ; then LOG=$(cat -); echo "$LOG" | awk 'NF' ; fi
 
 # ========== Parsing Flags  ========== 
 
-TICKERS="$(echo "$LOG" | awk -F ';' '{print $2}' | sort -u)"
+TICKERS="$(echo "$LOG" | awk -F ';' '{printf "%s ", $2} ENDFILE {print ""}' | sort -u)"
 
 while getopts ":t:a:b:w:h:help" opt; do
     case ${opt} in
@@ -95,8 +94,7 @@ while getopts ":t:a:b:w:h:help" opt; do
             exit 1 
         fi
         
-        SELECTED_TICKERS="$SELECTED_TICKERS
-$OPTARG"
+        SELECTED_TICKERS="$SELECTED_TICKERS $OPTARG"
         ;;
 
     # -a DATETIME – after: only records after this date are considered (without this date). DATETIME is in the format YYYY-MM-DD HH: MM: SS
@@ -191,12 +189,15 @@ then
     TICKERS=$TICKERS 
 else
     TICKERS=$(echo "$SELECTED_TICKERS"  | sort | awk 'NF' )
+
+    for a in $TICKERS ; do LOGG="$LOGG
+$(echo "$LOG" | grep -w "$a")"
+    done
+    LOG=$(echo "$LOGG" | sort -k1 )
+  
 fi
 
 # ========== Commands ========== 
-
-if [ "$#" -eq 0 ] ; then echo "$LOG" ; fi
-
 
 # the main loop - goes until the number of arguments is greater than zero
 while [ "$#" -gt 0 ] ; do
@@ -214,23 +215,15 @@ while [ "$#" -gt 0 ] ; do
     # PROFIT – statement of total profit from closed positions
     profit)
 
-        # filtering log by tickers - split tickers into array and then filtering
-        LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
-        for(i=1;i in a;i++) 
-        {
-           if( $2 == a[i])  
-            print $0
-        }}')
-
         # getting all sell transactions
-        SELL=$(echo "$LOG_PROFIT" | awk -F ';' '$3 ~ /sell/ {sum += $4*$6} END { printf ("%0.2f\n", sum)}')
+        SELL=$(echo "$LOG" | awk -F ';' '$3 ~ /sell/ {sum += $4*$6} END { printf ("%0.2f\n", sum)}')
 
         # getting all buy transactions
-        BUY=$(echo "$LOG_PROFIT" | awk -F ';' '$3 ~ /buy/ {sum += $4*$6} END {printf ("%0.2f\n", sum)}')
+        BUY=$(echo "$LOG" | awk -F ';' '$3 ~ /buy/ {sum += $4*$6} END {printf ("%0.2f\n", sum)}')
 
         # printing the result
         s=$(echo "$SELL - $BUY" | bc )
-
+     
         printf "%0.2f\n" "$s"
 
         shift 
@@ -238,15 +231,9 @@ while [ "$#" -gt 0 ] ; do
     
     # LAST-PRICE – listing of the last known price for each ticke
     last-price)
-        # search for the largest number in column no. 4
-        LOG_LP=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
-        for(i=1;i in a;i++) 
-        {
-           if( $2 == a[i])  
-            print $0
-        }}')
 
-        LENGTH=$(echo "$LOG_LP" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')
+
+        LENGTH=$(echo "$LOG" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')
     
         for a in $TICKERS ; do  
             # get all "$a" transactions => print the last one => align to the right by the longest number
@@ -259,7 +246,7 @@ while [ "$#" -gt 0 ] ; do
     #POS – list of values of currently held positions sorted in descending order by value
     pos)
        
-        for a in $TICKERS
+         for a in $TICKERS
         do  
            
             # getting bought stocks for each ticket and add it to a var "sum"
@@ -290,7 +277,6 @@ $a:$POS_RESULT1"
         shift
         ;;  
 
-    # hist-ord – výpis histogramu počtu transakcí dle tickeru.
 
     hist-ord)
         HIGHEST=$(echo "$LOG" | awk -F ';' '{  if (++words[$2] > max) { max = words[$2]; maxW=$2; sum=sum+1 } } END { print sum }')
@@ -369,11 +355,11 @@ $TEST"
             done
  
         
-            ENND=$(echo "$END"| awk 'NF') 
-
-            
-            echo "$ENND" | awk -F " "  -v var="$TICKERS" -v vvar="$ENND" 'BEGIN { split(var,a,"\n") split(vvar,b,"\n") } END {
-
+            ENND=$(echo "$END"| awk '{printf "%s ", $1} ENDFILE {print ""}')
+            TICKERS=$(echo "$TICKERS" | awk '{printf "%s ", $1} ENDFILE {print ""}')
+         
+            echo "$ENND" | awk -F " "  -v var="$TICKERS" -v vvar="$ENND" 'BEGIN { split(var,a," ") split(vvar,b," ") } END {
+           
             for(i=1;i in a;i++) 
             {   
                 if (b[i] != 1)
@@ -412,5 +398,3 @@ $TESTB"
 
 shift "$NUMBER_OF_LOGS"
 done
-
-# ========== COMMANDS ========== END
