@@ -244,7 +244,7 @@ while [ "$#" -gt 0 ] ; do
 
         LENGTH=$(echo "$LOGGA" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')
         echo "===="
-        
+        echo "$LOGGA"
         echo "$LENGTH"
         echo "==="
         for a in $TICKERS ; do  
