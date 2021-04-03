@@ -246,7 +246,7 @@ while [ "$#" -gt 0 ] ; do
     
         for a in $TICKERS ; do  
             # get all "$a" transactions => print the last one => align to the right by the longest number
-            echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}' |  awk -F ';' -v var="$a" -v len="$LENGTH" '$2 ~ var{a=$0} END{ printf "%-10s: %10s\n", var, $4}'
+            echo "$LOG" | awk -F ';' -v var="$a"  '$2 == var {print $0}' |  awk -F ';' -v var="$a" -v len="$LENGTH" '$2 ~ var{a=$0} END{ printf "%-10s: %*s\n", 10, $4}'
      
         done
         shift
