@@ -77,7 +77,7 @@ $LOADING_LOG"
     fi
 done
 
-if [ -z "$LOG" ] ; then LOG=$(cat - ) ; echo "$LOG" | awk 'NF' ; fi
+if [ -z "$LOG" ] ; then LOG=$(cat - | awk 'NF') ;c=1 ; fi
 
 # ========== Parsing Flags  ========== 
 
@@ -195,6 +195,9 @@ fi
 
 # ========== Commands ========== 
 
+if [ "$#" -eq 0 ] ; then echo "$LOG" ; fi
+
+
 # the main loop - goes until the number of arguments is greater than zero
 while [ "$#" -gt 0 ] ; do
     case "$1" in
@@ -210,7 +213,8 @@ while [ "$#" -gt 0 ] ; do
 
     # PROFIT – statement of total profit from closed positions
     profit)
-       
+
+        # filtering log by tickers - split tickers into array and then filtering
         LOG_PROFIT=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
         for(i=1;i in a;i++) 
         {
@@ -235,14 +239,14 @@ while [ "$#" -gt 0 ] ; do
     # LAST-PRICE – listing of the last known price for each ticke
     last-price)
         # search for the largest number in column no. 4
-        LOGGA=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
+        LOG_LP=$(echo "$LOG"  | awk -F ';' -v var="$TICKERS" 'BEGIN { split(var,a,"\n") } {
         for(i=1;i in a;i++) 
         {
            if( $2 == a[i])  
             print $0
         }}')
 
-        LENGTH=$(echo "$LOGGA" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')
+        LENGTH=$(echo "$LOG_LP" | awk -F ';' '{for (i=1;i<=NF;i++) if (length($4)>max) max=length($4)} END{print max}')
     
         for a in $TICKERS ; do  
             # get all "$a" transactions => print the last one => align to the right by the longest number
@@ -255,7 +259,7 @@ while [ "$#" -gt 0 ] ; do
     #POS – list of values of currently held positions sorted in descending order by value
     pos)
        
-         for a in $TICKERS
+        for a in $TICKERS
         do  
            
             # getting bought stocks for each ticket and add it to a var "sum"
@@ -327,15 +331,12 @@ $a:$POS_RESULT1"
             POS_SELL=$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar && $3 ~ /sell/ {sum += $6} END {printf "%.0f", sum}')
 
             # "sold" - "bought"
-            POS_RESULT="$( echo "$POS_BUY - $POS_SELL" | bc)"
+            POS_RESULT="$(echo "$POS_BUY - $POS_SELL" | bc)"
 
-            
-        
             # getting the last transaction
             POS_LAST_TRANS="$(echo "$LOG" | awk -F ';' -v lvar="$a" '$2==lvar {print $0}' | tail -n1 | awk -F ';' '{print $4}')"
 
-            #echo "$VAR2"
-            POS_RESULT1=$(echo  "$POS_RESULT*$POS_LAST_TRANS"| bc)
+            POS_RESULT1=$(echo "$POS_RESULT*$POS_LAST_TRANS"| bc)
             POS_RESULT3="$POS_RESULT3
 $POS_RESULT1" 
         done 
@@ -343,8 +344,6 @@ $POS_RESULT1"
             POSR=$(echo "$POS_RESULT3"| awk 'NF')
             MAX_VAL=$(echo "$POSR" | tr ' ' '\n' | tr '-' ' ' | sort -nr | head -1)
 
-            IFS="
-"   
             for a in $POS_RESULT3 ; do
  
             TEST1=$(echo "$a" | awk  -v var="$a" -v max="$MAX_VAL" -v wid="$WIDTH" '  { if(wid != 0) {sum=(wid/max)*var} else {sum=var/1000} } END{printf "%0.f", int(sum)}')
@@ -395,7 +394,7 @@ $TEST"
 
         ;;     
     *)  
-        
+       
         for a in $TICKERS
         do
         TESTB=$(echo "$LOG" | grep -w "$a")
