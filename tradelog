@@ -356,15 +356,13 @@ $POS_RESULT1"
             END="$END,$TEST"
             done
  
-            
-
-            echo "$END"
+       
 
             echo "$END" | awk -F " "  -v var="$TICKERS" -v vvar="$END" 'BEGIN { split(var,a," ") split(vvar,b,",") } END {
 
-            for(i in a)
+            for(i in b)
             { 
-               printf "%-10s: %s\n", a[i],  b[i]
+               print b[i]
             } 
             }'
                         
