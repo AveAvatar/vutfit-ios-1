@@ -1,12 +1,5 @@
 #!/bin/sh
 # =============================================================
-# @IOS - project 1
-# @author : Tadeáš Kachyňa
-# @login : xkachy00
-# @date : 2021-04-04
-# @usage : type --help or -h
-#!/bin/sh
-# =============================================================
 # IOS - project 1
 # @author : Tadeáš Kachyňa
 # @login  : xkachy00
@@ -23,16 +16,18 @@ help()
     echo "============================================================="
 
     echo "Usage: tradelog [-h|--help] [FILTER] [COMAND] [LOG [LOG2 [...]]"
-
+    echo " "
     echo "One of the commands can be:"
+    echo " "
     echo "  list-tick – listing of occurring stock exchange symbols, so-called tickers"
     echo "  profit – statement of total profit from closed positions"
     echo "  pos – list of values of currently held positions sorted in descending order by value"
     echo "  last-price – listing of the last known price for each ticker"
     echo "  hist-ord – histogram report of the number of transactions according to the ticker"
     echo "  graph-pos – statement of the graph of values of held positions according to the ticker"
-
+    echo " "
     echo "The FILTER can be a combination of the following:"
+    echo " "
     echo "  -a DATETIME – after: only records after this date are considered (without this date). DATETIME is in the format YYYY-MM-DD HH:MM:SS"
     echo "  -b DATETIME – before: only records BEFORE this date (without this date) are considered"
     echo "  -t TICKER – only entries corresponding to a given ticker are considered. With multiple occurrences of the switch, the set of all listed ticker is taken"
@@ -45,6 +40,8 @@ help()
 
 NUMBER_OF_LOGS=0        # defines the final number by how much to shift, default is set to zero
 WIDTH=0                 # defines the flag width, by default it is set to zero
+after=0                 # defines whether the flag -a was entered or not (0 = off, 1 = active)
+before=0                # defines whether the flag -b was entered or not (0 = off, 1 = active)
 
 # loops through arguments
 for var in "$@" ; do  
@@ -94,13 +91,6 @@ while getopts ":t:a:b:w:h:help" opt; do
 
     # -t TICKER – only entries corresponding to a given ticker are considered. With multiple occurrences of the switch, the set of all listed ticker is taken
     t)  
-        # condition checking whether the name of a ticket is correct or not
-        ERROR=$(echo "$TICKERS" | grep -w "$OPTARG")
-        if [ -z "$ERROR" ] ; then  
-            echo "ERROR > Invalid ticker!"
-            exit 1 
-        fi
-        
         SELECTED_TICKERS="$SELECTED_TICKERS
 $OPTARG"
         ;;
@@ -174,15 +164,17 @@ shift $((OPTIND-1))
 ##########  Merging logs $ tickers based on entered flags ########## 
 
 # Logs
-if [ "$after" = 1 ] ; then
+if [ "$after" = 1 ] && [ "$before" = 0 ] ; then
     MERGED=$(echo "$LOG_AFTER" | sort )
     LOG="$MERGED"
-elif [ "$before" = 1 ] ;then
+elif [ "$before" = 1 ] && [ "$after" = 0 ];then
     MERGED=$(echo "$LOG_BEFORE" | sort )
     LOG="$MERGED"
+
 elif [ "$before" = 1 ] && [ "$after" = 1 ] ;then
-    MERGED=$(echo "$LOG_BEFORE $LOG_BEFORE" | sort )
-    LOG="$MERGED"
+    MERGED="$LOG_BEFORE
+$LOG_AFTER"
+    LOG=$(echo "$MERGED" | sort | uniq -d)
 fi
 
 # Tickers
