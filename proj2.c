@@ -14,9 +14,12 @@
 #include <fcntl.h>
 #include <errno.h>
 
-
 sem_t *santaSem = NULL;
 sem_t *mutex = NULL;
+sem_t *mutex2 = NULL;
+sem_t *reindeerSem = NULL;
+sem_t *elfTex = NULL;
+sem_t *elfTex2 = NULL;
 
 // Shared memory variable
 static int *glob_var;   
@@ -32,90 +35,134 @@ typedef struct {
     int TR;
 } args;
 
-// Reindeer function
-void reindeer(int NR, int TR) {
+
+/**
+ * @name Reindeer Fucntion
+ * 
+ * @brief reeinder process
+ * 
+ * @param NR number of reeindeers
+ * @param TR max. time in milliseconds for which the reindeer works independently
+ */
+void processReindeer(int NR, int TR) {
     srand(time(NULL));
 
-    int lower = TR / 2;
-    int upper = TR;
-
+    int lower = TR / 2; // lower border
+    int upper = TR; // upper border
+    
     int ran;
-    for(int i=0; i<NR; i++) 
-    {   
-        ran = (rand() % (upper - lower + 1) + lower);
-        ran = ran * 1000;
-        int A = fork();
 
-        if(A == 0)
+    for(int i=1; i<NR+1; i++) 
+    {   
+        ran = (rand() % (upper - lower + 1) + lower); // gives you random value from interval <TR/2 , TR >
+        ran = ran * 1000; 
+
+        pid_t reindeer = fork();
+
+        if(reindeer == 0)
         {   
-          
             sem_wait(mutex);
-            ++(*RD_id);
-            ++(*glob_var);
-            printf("%d: RD %d: rstarted\n", *glob_var, *RD_id);
-            sem_post(mutex); 
+                ++(*glob_var);
+                printf("%d: RD %d: rstarted\n", *glob_var, i);
+            sem_post(mutex);
+
             usleep(ran);
             
-            if (*RD_id >= NR ) {
-                *RD_id = 0; 
-            }
             sem_wait(mutex);
-            ++(*glob_var);
-            ++(*RD_id);
-            printf("%d: RD %d: getback\n", *glob_var, *RD_id);
-            ++(*RD_counter);
-            sem_post(mutex); 
-            if(*RD_counter == NR) {
+                ++(*glob_var);
+                ++(*RD_counter);
+               // printf(" %d  \n", ran);
+                printf("%d: RD %d: return home\n", *glob_var, i);
+            sem_post(mutex);
+        
+            if(*RD_counter == NR) 
+            {     
                 sem_post(santaSem);
+               
             }
-
-            exit(1);
+  
+            sem_wait(reindeerSem);
+                *RD_counter = *RD_counter - 1;
+                *glob_var = *glob_var + 1;
+                printf("%d: RD %d: get hitched\n", *glob_var, i); 
+            
+            exit(0);
         } 
-
     }
      
     while(wait(NULL)!=-1);
 }
     
-
-int elves(int NE){
+/**
+ * @name Elves function
+ * 
+ * @brief elves process
+ * 
+ * @param NE number of reeindeers
+ * @param TE max. time in milliseconds for which the reindeer works independently
+ */
+int processElves(int NE, int TE){
     srand(time(NULL));
     int ran;
-    for(int i=0; i<NE; i++) 
+    for(int i=1; i<NE+1; i++) 
     {   
-        ran = (rand() % 1000);
-        ran = ran * 1000;
-        int A = fork();
+        ran = (rand() % TE);
+        ran = ran * 1000; 
+        pid_t elves = fork();
 
-        if(A == 0)
+        if(elves == 0)
         {   
-            ++(*E_id);
-            ++(*glob_var);
-            printf("%d: Elf %d: started\n", *glob_var, *E_id);
-        
-        
+            
+            /* Elves start working */
+            sem_wait(mutex);
+                ++(*glob_var);
+                printf("%d: Elf %d: started\n", *glob_var, i);
+            sem_post(mutex);
+            
+            for(;;) {
             usleep(ran);
+
+            /* Elves need helps */
+            sem_wait(elfTex);
+            sem_wait(mutex);
+                ++(*glob_var);
+                ++(*Elves_counter);
+                //printf(" %d  \n", ran);
+                printf("%d: Elf %d: need help\n", *glob_var, i);   
             
-
-            if (*RD_id >= NE ) {
-                *RD_id = 0; 
-            }
-            ++(*glob_var);
-            if (*E_id >= NE ) {
-                *E_id = 0; 
-            }
-            ++(*E_id);
-            printf("%d: Elf %d: need help\n", *glob_var, *E_id);
-            ++(*Elves_counter);
-
+           // printf("### %d ### \n", *Elves_counter);
+            
+            /* Checking how many elves need help */
             if (*Elves_counter == 3) {
+                //printf(" %d cekam a klepam\n", *Elves_counter);
+                 //printf("test\n");
                 sem_post(santaSem);
+                 //printf("test 3\n");
+
                 
-                printf("%d: Got helpted.\n", *glob_var);
-                
-            }
-            ++(*glob_var);
+            } else {
+                //printf(" %d cekam\n", *Elves_counter );
+                sem_post(elfTex);
+               
+            } 
+
+
             
+            sem_post(mutex);  
+
+            sem_wait(elfTex2);
+            ++(*glob_var);
+            printf("%d: Elf %d: Get help\n", *glob_var, i);
+            
+            sem_wait(mutex);
+            (*Elves_counter)--;
+            //printf("### %d ### \n", *Elves_counter);
+            if (*Elves_counter == 0) {
+                sem_post(elfTex);
+            }
+            sem_post(mutex);
+            }
+         
             exit(1);
         } 
     }
@@ -123,6 +170,50 @@ int elves(int NE){
     while(wait(NULL)!=-1);
     return 0;
 }
+
+/**
+ * @name Elves function
+ * 
+ * @brief elves process
+ * 
+ * @param NE number of reeindeers
+ * @param TE max. time in milliseconds for which the reindeer works independently
+ */
+void processSanta(args a)
+{
+   
+    for(;;) {
+    sem_wait(santaSem);
+    if(*Elves_counter == 3) {
+        //printf("test2\n");
+        
+        *glob_var = *glob_var + 1;
+        printf("%d: Santa: helping elves\n", *glob_var);
+        sem_post(elfTex2);
+        sem_post(elfTex2);
+        sem_post(elfTex2);
+       
+        
+        
+        usleep(1000);
+        *glob_var = *glob_var + 1;
+        printf("%d: Santa: going to sleep\n", *glob_var);
+    } else if (*RD_counter == a.NR) {
+        printf("%d: Santa: closing workshop\n", *glob_var); *glob_var = *glob_var + 1;
+        for (int i = 0; i < a.NR; i++) {
+        sem_post(reindeerSem);
+        }
+        usleep(10000);
+        printf("%d: Santa: Christmas started\n", *glob_var);  
+        fflush(stdout);
+        exit(1);       
+    } else {
+        
+    }}
+
+  
+}
+
 
 void init() 
 {
@@ -158,9 +249,57 @@ void init()
         fprintf(stderr, "Error > Semaphore.\n");
         exit(EXIT_FAILURE);
     }
+
+     mutex2 = sem_open("mutex2", O_CREAT | O_EXCL, 0666, 0);
+    if (mutex2 == SEM_FAILED) 
+    {
+        fprintf(stderr, "Error > Semaphore.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    reindeerSem = sem_open("reindeerSem", O_CREAT | O_EXCL, 0666, 0);
+    if (reindeerSem == SEM_FAILED) 
+    {
+        fprintf(stderr, "Error > Semaphore.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    elfTex = sem_open("elftex", O_CREAT | O_EXCL, 0666, 1);
+    if ( elfTex == SEM_FAILED) 
+    {
+        fprintf(stderr, "Error > Semaphore.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    elfTex2 = sem_open("elftex2", O_CREAT | O_EXCL, 0666, 0);
+    if ( elfTex2 == SEM_FAILED) 
+    {
+        fprintf(stderr, "Error > Semaphore.\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
-args arguments(int argc, char **argv, args a){
+void destroy() 
+{   
+    sem_unlink("elftex2");
+    sem_close(elfTex2);
+    sem_unlink("elftex");
+    sem_close(elfTex);
+    sem_unlink("mutex");
+    sem_close(mutex);
+    sem_unlink("mutex2");
+    sem_close(mutex2);
+    sem_unlink("reindeerSem");
+    sem_close(reindeerSem);
+      sem_unlink("sem");
+    sem_close(santaSem);
+    munmap(glob_var, sizeof *glob_var);
+    munmap(RD_id, sizeof *RD_id);
+}
+
+
+args arguments(int argc, char **argv, args a)
+{
 
     char *ptr;
     /* small number of entered arguments */
@@ -189,7 +328,7 @@ args arguments(int argc, char **argv, args a){
         exit(1);
     }
    
-    a.TR = strtol(argv[4], &ptr, 10); // max. time in milliseconds for which the reindeer works independently
+    a.TR = strtol(argv[4], &ptr, 10); // max. time in milliseconds for which the reindeer works ind ependently
     if (*ptr != '\0' || ptr == argv[4]) {
         printf("ERROR > '%s' is not a number.\n", argv[4]);
         exit(1);
@@ -234,28 +373,16 @@ int main(int argc, char **argv)
     
     pid_t process = fork();
     if (process == 0) {
-        reindeer(a.NR, a.TR);
+        processReindeer(a.NR, a.TR);
     } else {
         pid_t process2 = fork();
         if (process2 == 0) {
-            elves(a.NE);
+            processElves(a.NE, a.TE);
         } else {
-            sem_wait(santaSem);
-       
-            
-             printf("%d: Santa: closing workshop\n", *glob_var); *glob_var = *glob_var + 1;
-            for(int i = 0; i < a.NR; i++) {
-                printf("%d: Santa: get hitched\n", *glob_var); 
-                *glob_var = *glob_var + 1;
-            }
-            printf("%d: Santa: Christmas started\n", *glob_var); 
-            sem_unlink("sem");
-            sem_close(santaSem);
-           
-        
-        
-
+            processSanta(a);
+      
         }
+
         while(wait(NULL)!=-1);
     }
         while(wait(NULL)!=-1);
@@ -264,13 +391,7 @@ int main(int argc, char **argv)
 
    
     
-   
-   
-    sem_unlink("mutex");
-    sem_close(mutex);
-    munmap(glob_var, sizeof *glob_var);
-    munmap(RD_id, sizeof *RD_id);
-
+    destroy();
 
    
     return 0;
