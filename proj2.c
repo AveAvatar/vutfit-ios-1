@@ -2,7 +2,7 @@
  * @file    proj2.c
  * @brief   IOS - Operating Systems - 2nd project - Santa Claus Problem
  * @author  Tadeáš Kachyňa <xkachy00@stud.fit.vutbr.cz>
- * @date    4/5/2021
+ * @date    4/2/2021
  * @version 1.0
  ****************************************************************************/
 
@@ -11,12 +11,9 @@
 #include <semaphore.h>
 #include <string.h>
 #include <sys/types.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/wait.h>
-#include <sys/shm.h> 
-#include <pthread.h>
 #include <sys/mman.h>
 #include <time.h>
 #include <fcntl.h>
@@ -24,14 +21,14 @@
 
 /********** Constants **********/
 
-#define NUM_OF_ARGS 5
-#define ARGS_FAIL 1
-#define MAX_REINDEERS 19
-#define MIN_REINDEERS 1
-#define MAX_ELVES 999
-#define MIN_ELVES 1
-#define MIN_TIME 0
-#define MAX_TIME 1000
+#define NUM_OF_ARGS 5 /// expected number of program arguments
+#define ARGS_FAIL 1 
+#define MAX_REINDEERS 19 /// maximum number of reindeers that can be entered         
+#define MIN_REINDEERS 1 /// minimum number of reindeers that can be entered
+#define MAX_ELVES 999 /// maximum number of elves that can be entered
+#define MIN_ELVES 1 /// minimum number of elves that can be entered
+#define MIN_TIME 0 /// min. time
+#define MAX_TIME 1000 /// max.time
 
 /********** Semaphores **********/
 
@@ -76,25 +73,21 @@ typedef struct {
     int TR;
 } args;
 
-void destroy();
 /**
- * @name Reindeer function
- * 
- * @brief reeinder process
+ * @brief generates reindeer processes
  * 
  * @param NR number of reeindeers
  * @param TR max. time in milliseconds for which the reindeer works independently
- * @param i index
+ * @param i index of process
  */
-void processReindeer(int NR, int TR, int i) 
-{   
+void processReindeer(int NR, int TR, int i) {   
     
- 
     int lower = TR / 2; // lower border
     int upper = TR;     // upper border 
     int ran;
+
     srand(time(NULL) * getpid());
-    ran = (rand() % (upper - lower + 1) + lower); // gives you random value from interval <TR/2,TR>
+    ran = (rand() % (upper - lower + 1) + lower); // gives you a random value from interval <TR/2,TR>
     ran = ran * 1000; 
 
     sem_wait(mutex);
@@ -104,8 +97,7 @@ void processReindeer(int NR, int TR, int i)
     sem_post(mutex);
 
     usleep(ran);
-
-    
+   
     sem_wait(mutex);
     fprintf(file, "%d: RD %d: return home\n", *actionCounter, i);
     fflush(file);
@@ -113,8 +105,7 @@ void processReindeer(int NR, int TR, int i)
     (*reindeerCounter)++;
     sem_post(mutex);
 
-    if(*reindeerCounter == NR) 
-    {   
+    if(*reindeerCounter == NR) {  
         sem_post(santaSem);    
     }
  
@@ -134,27 +125,24 @@ void processReindeer(int NR, int TR, int i)
 }
     
 /**
- * @name processElves
- * 
  * @brief function generating elf processes
  * 
  * @param NE number of elves
- * @param i indexing of elves
+ * @param i index of process
  */
-void processElves(int TE, int i)
-{  
+void processElves(int TE, int i){  
+
     int ran;
-       
+    
     sem_wait(mutex);
-        fprintf(file, "%d: Elf %d: started\n", *actionCounter, i);
-        fflush(file);
-        (*actionCounter)++;
+    fprintf(file, "%d: Elf %d: started\n", *actionCounter, i);
+    fflush(file);
+    (*actionCounter)++;
     sem_post(mutex);
     
     for(;;) {
         
-        if(TE != 0) 
-        {
+        if(TE != 0) {
             srand(time(NULL) * getpid());
             ran = (rand() % TE);
             ran = ran * 1000;      
@@ -164,18 +152,16 @@ void processElves(int TE, int i)
         sem_wait(elvesSem);
 
         sem_wait(mutex);
-            fprintf(file, "%d: Elf %d: need help\n", *actionCounter, i);   
-            (*actionCounter)++;
-            (*elvesCounter)++;
-            fflush(file);
+        fprintf(file, "%d: Elf %d: need help\n", *actionCounter, i);   
+        (*actionCounter)++;
+        (*elvesCounter)++;
+        fflush(file);
         sem_post(mutex); 
 
-        if (*elvesCounter == 3 && *elvesHolidays == 0) 
-        {
+        // elves are waiting in front of santa's workshop, a third one gives Santa a signal to let them inside
+        if (*elvesCounter == 3 && *elvesHolidays == 0) {
             sem_post(santaSem);
-
         } else {
-
             sem_post(elvesSem); 
         } 
       
@@ -183,8 +169,8 @@ void processElves(int TE, int i)
 
         sem_wait(mutex);
        
-         if (*elvesHolidays == 1) 
-        {
+        // when the workshop is closed, elves are taking holidays
+        if (*elvesHolidays == 1) {
             fprintf(file, "%d: Elf %d: taking holidays\n", *actionCounter, i);
             (*actionCounter)++;
             
@@ -195,18 +181,15 @@ void processElves(int TE, int i)
             
             exit(0);   
         }
-
-
        
         sem_post(mutex);
 
-        
         sem_wait(mutex);
         fprintf(file, "%d: Elf %d: get help\n", *actionCounter, i);
         fflush(file);
         (*actionCounter)++;
         
-         sem_post(santaHelped);
+        sem_post(santaHelped);
          
         (*elvesCounter)--;
 
@@ -214,10 +197,8 @@ void processElves(int TE, int i)
             sem_post(elvesSem);
         }
        
-        sem_post(mutex);
-      
+        sem_post(mutex);  
     }
-
 }
 
 /**
@@ -231,200 +212,74 @@ void processElves(int TE, int i)
 void processSanta(args a)
 {   
     sem_wait(mutex);
-        fprintf(file, "%d: Santa: going to sleep\n", *actionCounter);
-        fflush(file);
-        (*actionCounter)++;
+    fprintf(file, "%d: Santa: going to sleep\n", *actionCounter);
+    fflush(file);
+    (*actionCounter)++;
     sem_post(mutex);
 
     for(;;) {
 
         sem_wait(santaSem);
 
-        if(*elvesCounter== 3  && *elvesHolidays== 0) {
+        if(*elvesCounter== 3  && *elvesHolidays == 0 && *reindeerCounter != a.NR) {
 
             sem_wait(mutex);
-                fprintf(file, "%d: Santa: helping elves\n", *actionCounter);
-                fflush(file);
-                (*actionCounter)++;
+            fprintf(file, "%d: Santa: helping elves\n", *actionCounter);
+            fflush(file);
+            (*actionCounter)++;
             sem_post(mutex);
 
-            for(int i = 0; i < 3; i++) 
-            {
+            // Santa lets elves into the workshop
+            for(int i = 0; i < 3; i++) {
                 sem_post(elvesHelp);
             }
 
-            for(int i = 0; i < 3; i++) 
-            {
+            // Santa helping all 3 elves and then goes sleep
+            for(int i = 0; i < 3; i++) {
                 sem_wait(santaHelped);
             }   
             
-            
             sem_wait(mutex);
-            
             fprintf(file, "%d: Santa: going to sleep\n", *actionCounter);
             (*actionCounter)++;
             fflush(file);
-            
-            
-           
             sem_post(mutex);
-           
-
-    
+     
         } else if (*reindeerCounter == a.NR) {
 
             sem_wait(mutex);
-                fprintf(file, "%d: Santa: closing workshop\n", *actionCounter);
-                fflush(file);
-                (*actionCounter)++;
-
-                for(int i = 0; i < a.NE; i++) 
-                {
-                    sem_post(elvesHelp);
-                }
-                
-              
-               // fprintf(file, "TEST\n");
-                fflush(file);
-                *elvesHolidays = 1;
-                
-                for (int i = 0; i < a.NR; i++) 
-                {
-                    sem_post(reindeerSem);
-                }
+            fprintf(file, "%d: Santa: closing workshop\n", *actionCounter);
+            fflush(file);
+            (*actionCounter)++;
+            
+            // gives signal to elves to take holidays
+            for(int i = 0; i < a.NE; i++) {
+                sem_post(elvesHelp);
+            }
+            
+            *elvesHolidays = 1;
+            
+            // gives signal to reindeers
+            for (int i = 0; i < a.NR; i++) {
+                sem_post(reindeerSem);
+            }
             sem_post(mutex);
-
-                
-    
-            for(int i = 0; i < a.NR; i++) 
-            {
+   
+            // waits for reindeers to get hitched
+            for(int i = 0; i < a.NR; i++) {
                 sem_wait(getHitched);
             }
             
-           
-    
             sem_wait(mutex);
-                
-
-
-                fprintf(file, "%d: Santa: Christmas started\n", *actionCounter);  
-                fflush(file);
-                (*actionCounter)++;
+            fprintf(file, "%d: Santa: Christmas started\n", *actionCounter);  
+            fflush(file);
+            (*actionCounter)++;
             sem_post(mutex);
+
             sem_post(allProcesses);
-           exit(1);
-        } else {
 
+            exit(0);
         }
-    }
-
-}
-
-/**
- * @brief does initialization of shared memories and semaphores
- */
-void init() 
-{
-    /* Initializations of shared memories */
-
-    actionCounter = mmap(NULL, sizeof *actionCounter, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (actionCounter == MAP_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Allocation of shared memory [actionCounter] failed.\n");
-    }
-
-    *actionCounter = 1;  
-
-    reindeerCounter = mmap(NULL, sizeof *reindeerCounter, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (reindeerCounter == MAP_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Allocation of shared memory [reindeerCounter] failed.\n");
-    }
-
-    *reindeerCounter = 0;
-
-
-    elvesCounter = mmap(NULL, sizeof *elvesCounter, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (elvesCounter == MAP_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Allocation of shared memory [elvesCounter] failed.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    *elvesCounter = 0;
-
-    elvesHolidays = mmap(NULL, sizeof *elvesHolidays, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (elvesHolidays == MAP_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Allocation of shared memory [elvesHolidays] failed.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    *elvesHolidays = 0;
-
-    /* Initializations of semaphores */
-
-    santaSem = sem_open(SEM_SANTASEM, O_CREAT | O_EXCL, 0666, 0);
-    if (santaSem == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [santaSem] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-   
-    mutex = sem_open(SEM_MUTEX, O_CREAT | O_EXCL, 0666, 1);
-    if (mutex == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [mutex] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    reindeerSem = sem_open(SEM_REINDEERSEM, O_CREAT | O_EXCL, 0666, 0);
-    if (reindeerSem == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [reindeerSem] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    elvesSem = sem_open(SEM_ELVESSEM, O_CREAT | O_EXCL, 0666, 1);
-    if ( elvesSem == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [elvesSem] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    elvesHelp = sem_open(SEM_ELVESHELP, O_CREAT | O_EXCL, 0666, 0);
-    if ( elvesHelp == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [elvesHelp] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    allProcesses = sem_open(SEM_ALL, O_CREAT | O_EXCL, 0666, 0);
-    if ( allProcesses == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [allProcesses] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    getHitched = sem_open(SEM_GETHITCHED, O_CREAT | O_EXCL, 0666, 0);
-    if ( getHitched == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [getHitched] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    santaHelped = sem_open(SEM_SANTAHELPED, O_CREAT | O_EXCL, 0666, 0);
-    if ( santaHelped  == SEM_FAILED) 
-    {
-        fprintf(stderr, "ERROR > Semaphore [santaHelped] not initialized.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    file = fopen("proj2.out", "w");
-    if (file == NULL)
-    {
-        fprintf(stderr, "ERROR > Opening file.\n");
-        exit(EXIT_FAILURE);
     }
 }
 
@@ -464,19 +319,140 @@ void clean()
 }
 
 /**
+ * @brief does initialization of shared memories and semaphores
+ */
+void init() 
+{
+    /* Initializations of shared memories */
+
+    actionCounter = mmap(NULL, sizeof *actionCounter, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (actionCounter == MAP_FAILED) {
+        fprintf(stderr, "ERROR > Allocation of shared memory [actionCounter] failed.\n");
+        clean();
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    *actionCounter = 1;  
+
+    reindeerCounter = mmap(NULL, sizeof *reindeerCounter, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (reindeerCounter == MAP_FAILED) {
+        fprintf(stderr, "ERROR > Allocation of shared memory [reindeerCounter] failed.\n");
+        clean();
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    *reindeerCounter = 0;
+
+    elvesCounter = mmap(NULL, sizeof *elvesCounter, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (elvesCounter == MAP_FAILED){
+        fprintf(stderr, "ERROR > Allocation of shared memory [elvesCounter] failed.\n");
+       clean();
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    *elvesCounter = 0;
+
+    elvesHolidays = mmap(NULL, sizeof *elvesHolidays, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (elvesHolidays == MAP_FAILED) {
+        fprintf(stderr, "ERROR > Allocation of shared memory [elvesHolidays] failed.\n");
+        clean();
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    *elvesHolidays = 0;
+
+    /* Initializations of semaphores */
+
+    santaSem = sem_open(SEM_SANTASEM, O_CREAT | O_EXCL, 0666, 0);
+    if (santaSem == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [santaSem] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+   
+    mutex = sem_open(SEM_MUTEX, O_CREAT | O_EXCL, 0666, 1);
+    if (mutex == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [mutex] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+
+    reindeerSem = sem_open(SEM_REINDEERSEM, O_CREAT | O_EXCL, 0666, 0);
+    if (reindeerSem == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [reindeerSem] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+
+    elvesSem = sem_open(SEM_ELVESSEM, O_CREAT | O_EXCL, 0666, 1);
+    if ( elvesSem == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [elvesSem] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+
+    elvesHelp = sem_open(SEM_ELVESHELP, O_CREAT | O_EXCL, 0666, 0);
+    if ( elvesHelp == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [elvesHelp] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+
+    allProcesses = sem_open(SEM_ALL, O_CREAT | O_EXCL, 0666, 0);
+    if ( allProcesses == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [allProcesses] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+
+    getHitched = sem_open(SEM_GETHITCHED, O_CREAT | O_EXCL, 0666, 0);
+    if ( getHitched == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [getHitched] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    santaHelped = sem_open(SEM_SANTAHELPED, O_CREAT | O_EXCL, 0666, 0);
+    if ( santaHelped  == SEM_FAILED) {
+        fprintf(stderr, "ERROR > Semaphore [santaHelped] not initialized.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+
+    file = fopen("proj2.out", "w");
+    if (file == NULL){
+        fprintf(stderr, "ERROR > Opening file.\n");
+        clean();
+        fclose(file);
+        exit(1);
+    }
+}
+
+/**
  * @brief loads arguments, check them and gives errors
  * 
  * @param argc number of arguments
  * @param argv argument vectors
  * @param a    structure
  */
-args arguments(int argc, char **argv, args a)
+args argumentsFunc(int argc, char **argv, args a)
 {
 
     char *ptr;
     /* small number of entered arguments */
-    if (argc != NUM_OF_ARGS) 
-    {
+    if (argc != NUM_OF_ARGS) {
         fprintf(stderr, "ERROR > Enter more arguments.\n");
         exit(ARGS_FAIL);
     } 
@@ -508,24 +484,20 @@ args arguments(int argc, char **argv, args a)
 
      /****** Checking if the number is in the range *****/
 
-    if (a.NE < MIN_ELVES || a.NE > MAX_ELVES) 
-    {
-        fprintf(stderr, "ERROR > Number has to be 1 to 999.\n");
+    if (a.NE < MIN_ELVES || a.NE > MAX_ELVES) {
+        fprintf(stderr, "ERROR > Number has to be from 1 to 999.\n");
         exit(ARGS_FAIL);
     }  
-    if (a.NR < MIN_REINDEERS || a.NR > MAX_REINDEERS) 
-    {
-        fprintf(stderr, "ERROR > Number has to be 1 to 19.\n");
+    if (a.NR < MIN_REINDEERS || a.NR > MAX_REINDEERS) {
+        fprintf(stderr, "ERROR > Number has to be from 1 to 19.\n");
         exit(ARGS_FAIL);
     } 
-    if (a.TE < MIN_TIME || a.TE > MAX_TIME) 
-    {
-        fprintf(stderr, "ERROR > Number has to be 1 to 999.\n");
+    if (a.TE < MIN_TIME || a.TE > MAX_TIME) {
+        fprintf(stderr, "ERROR > Number has to be from 1 to 999.\n");
         exit(ARGS_FAIL);
     } 
-    if (a.TR < MIN_TIME || a.TR > MAX_TIME) 
-    {
-        fprintf(stderr, "ERROR > Number has to be 1 to 999.\n");
+    if (a.TR < MIN_TIME || a.TR > MAX_TIME) {
+        fprintf(stderr, "ERROR > Number has to be from 1 to 999.\n");
         exit(ARGS_FAIL);
     }
 
@@ -533,74 +505,98 @@ args arguments(int argc, char **argv, args a)
 }
 
 /**
+ * @brief terminates currently all running processes
+ * 
+ * @param arguments arguments entered by user
+ */
+void terminateAll(args arguments)
+{   
+    *reindeerCounter = arguments.NE;
+    for(int i = 0; i < arguments.NE; i++) {   
+        sem_post(mutex);
+        sem_post(santaSem);
+        sem_post(elvesSem);
+        sem_post(elvesHelp);
+        sem_post(allProcesses);
+    }
+
+    for(int i = 0; i < arguments.NR; i++) {   
+        sem_post(mutex);
+        sem_post(santaSem);
+        sem_post(getHitched);
+        sem_post(elvesSem);
+        sem_post(santaSem);
+        sem_post(allProcesses);
+    }
+
+    sem_post(santaSem);
+    sem_post(allProcesses);
+    while(wait(NULL) > -1);
+    fclose(file);
+    clean();
+}
+
+/**
  * Main function
  * 
  * @param argc number of arguments
  * @param argv argument values
- * @return 0 return sucess
+ * @return 0 returns success
  */
 int main(int argc, char **argv) 
 {      
     /********** Inicialization **********/
      
-    args a = arguments(argc, argv, a);
-    init();
+    args arguments = argumentsFunc(argc, argv, arguments); // processes arguments
+    init(); // initalizes shared memories and semaphores
    
     /********** Process generating **********/
 
     pid_t process = fork();
-
+   
+    // generates santa process
     if (process == 0) {
 
-    processSanta(a);
+    processSanta(arguments);
      
     } else {
-        for(int i = 0; i < a.NE; i++)
-        {   
-            int j = a.NE;
+
+        // generator of elf processes
+        for(int i = 0; i < arguments.NE; i++){   
+            int j = arguments.NE;
             pid_t genElves[j];
             genElves[j] = fork();
-            if (genElves[j] == 0)
-            {
-
-            processElves(a.TE, i+1);
-
+            if (genElves[j] == 0){
+                processElves(arguments.TE, i+1);
             } else if (genElves[j] < 0) {
-
                 fprintf(stderr, "ERROR > Fork failed %d (genElves).\n", getpid());
-                exit(EXIT_FAILURE);
+                terminateAll(arguments);
+                exit(1); 
             }
         }
         
-        for(int i = 0; i < a.NR; i++)
-        {   
-            
-            int j = a.NR;
-            ;
+        // generator of reindeer processes
+        for(int i = 0; i < arguments.NR; i++){       
+            int j = arguments.NR;
             pid_t genReindeers[j]; 
             genReindeers[j] = fork();
-            if (genReindeers[j] == 0) 
-            {
-               
-            processReindeer(a.NR, a.TR, i+1); 
-
+            if (genReindeers[j] == 0) {
+                processReindeer(arguments.NR, arguments.TR, i+1); 
             } else if (genReindeers[j] < 0) {
-
                 fprintf(stderr, "ERROR > Fork failed %d (genReindeers).\n", getpid());
-                exit(EXIT_FAILURE);
+                terminateAll(arguments);
+                exit(1);
             } 
         } 
     }
-    
+
     /* Main process waits untill all other processes are finished */
-    for(int i = 0; i < (a.NE + a.NR + 1); i++) 
-    {
+    for(int i = 0; i < (arguments.NE + arguments.NR + 1); i++) {
         sem_wait(allProcesses);
     }
     
     /*************** Cleaning ***************/
     clean();
     fclose(file);
-
     return 0;
 }
